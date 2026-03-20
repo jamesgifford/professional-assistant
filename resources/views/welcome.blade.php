@@ -1,10 +1,3 @@
-<!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark">
-    <head>
-        @include('partials.head')
-    </head>
-    <body class="h-screen overflow-hidden">
-        <livewire:chat />
-        @fluxScripts
-    </body>
-</html>
+<x-layouts.public title="AI Hiring Assistant" metaDescription="Chat with James Gifford's AI assistant about his professional background, technical skills, and availability.">
+    <livewire:chat />
+</x-layouts.public>
