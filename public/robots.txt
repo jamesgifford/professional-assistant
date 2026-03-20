@@ -1,2 +1,14 @@
 User-agent: *
-Disallow:
+Disallow: /dashboard
+Disallow: /settings
+Disallow: /api
+Disallow: /webhook
+Disallow: /email/verify
+Disallow: /user
+Disallow: /two-factor-challenge
+Disallow: /login
+Disallow: /register
+Disallow: /forgot-password
+Disallow: /reset-password
+
+Sitemap: https://jamesgifford.ai/sitemap.xml
