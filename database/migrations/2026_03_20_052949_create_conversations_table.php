@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string('session_key')->index();
             $table->string('channel')->default('api');
-            $table->json('messages')->default('[]');
+            $table->json('messages')->nullable();
             $table->string('provider_used')->nullable();
             $table->json('metadata')->nullable();
             $table->timestamps();

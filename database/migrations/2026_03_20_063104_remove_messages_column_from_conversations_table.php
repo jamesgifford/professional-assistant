@@ -22,7 +22,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('conversations', function (Blueprint $table) {
-            $table->json('messages')->default('[]');
+            $table->json('messages')->nullable();
         });
     }
 };
