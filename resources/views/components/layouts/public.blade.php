@@ -30,20 +30,6 @@
         </main>
 
 
-        {{-- Dark mode toggle (fixed, above input area) --}}
-        <div class="fixed bottom-6 left-6 z-50" x-data>
-            <flux:button
-                variant="subtle"
-                square
-                x-on:click="$flux.dark = ! $flux.dark"
-                aria-label="Toggle dark mode"
-                class="!size-10 rounded-full border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm hover:border-zinc-400 dark:hover:border-zinc-600"
-            >
-                <flux:icon.sun x-show="$flux.dark" variant="mini" class="!size-4" />
-                <flux:icon.moon x-show="! $flux.dark" variant="mini" class="!size-4" />
-            </flux:button>
-        </div>
-
         @fluxScripts
     </body>
 </html>

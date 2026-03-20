@@ -71,6 +71,20 @@ class Chat extends Component
         }
     }
 
+    public function startNewSession(): void
+    {
+        session()->forget('chat_greeting');
+        session()->regenerate();
+
+        $this->messages = [];
+        $this->input = '';
+        $this->isProcessing = false;
+
+        $this->prependGreeting();
+
+        $this->dispatch('session-reset');
+    }
+
     private function prependGreeting(): void
     {
         $greetings = config('chat.greetings', []);
