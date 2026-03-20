@@ -21,7 +21,7 @@ it('sends a message and receives a response', function () {
         ->set('input', 'Hello')
         ->call('sendMessage')
         ->assertSet('input', '')
-        ->assertCount('messages', 2);
+        ->assertCount('messages', 3);
 });
 
 it('validates that input is required', function () {
@@ -43,7 +43,7 @@ it('loads existing conversation messages on mount', function () {
     $conversation->appendMessage('assistant', 'Hello!');
 
     Livewire::test(Chat::class)
-        ->assertCount('messages', 2);
+        ->assertCount('messages', 3);
 });
 
 it('handles ai service errors gracefully', function () {
@@ -58,7 +58,7 @@ it('handles ai service errors gracefully', function () {
     Livewire::test(Chat::class)
         ->set('input', 'Hello')
         ->call('sendMessage')
-        ->assertCount('messages', 2)
+        ->assertCount('messages', 3)
         ->assertSet('isProcessing', false);
 
     $conversation = Conversation::where('channel', 'web')->latest()->first();

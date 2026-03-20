@@ -32,6 +32,8 @@ class Chat extends Component
                 ])
                 ->all();
         }
+
+        $this->prependGreeting();
     }
 
     public function sendMessage(): void
@@ -67,6 +69,19 @@ class Chat extends Component
 
             $this->dispatch('message-sent');
         }
+    }
+
+    private function prependGreeting(): void
+    {
+        $greetings = config('chat.greetings', []);
+
+        if (empty($greetings)) {
+            return;
+        }
+
+        $greeting = session()->remember('chat_greeting', fn () => $greetings[array_rand($greetings)]);
+
+        array_unshift($this->messages, ['role' => 'assistant', 'content' => $greeting]);
     }
 
     private function getSessionKey(): string

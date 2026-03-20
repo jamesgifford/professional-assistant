@@ -11,7 +11,12 @@
         scrollToBottom() {
             $nextTick(() => {
                 const container = this.$refs.messagesContainer;
-                if (container) container.scrollTop = container.scrollHeight;
+                if (container) {
+                    const inner = container.firstElementChild;
+                    if (inner && inner.lastElementChild) {
+                        inner.lastElementChild.scrollIntoView({ behavior: 'instant', block: 'end' });
+                    }
+                }
             });
         },
         async checkHealth() {
@@ -36,57 +41,57 @@
         class="flex-1 overflow-y-auto"
         x-ref="messagesContainer"
     >
-        <div class="max-w-[720px] mx-auto px-6 py-8 pb-24 space-y-5">
-            @if (empty($messages))
-                {{-- Empty state --}}
-                <div class="flex items-center justify-center h-full min-h-[50vh]">
-                    <div class="text-center max-w-md">
-                        <div class="flex items-center justify-center gap-2 mb-1">
-                            <span class="font-mono text-xs text-emerald-600 dark:text-emerald-400">// hiring assistant</span>
-                            <span
-                                class="inline-block w-2 h-2 rounded-full"
-                                :class="healthStatus === 'up' ? 'bg-emerald-500' : (healthStatus === 'down' ? 'bg-red-500' : 'bg-zinc-400')"
-                                :title="healthStatus === 'up' ? 'AI service online' : (healthStatus === 'down' ? 'AI service offline' : 'Checking status...')"
-                            ></span>
-                        </div>
-                        <h3 class="text-xl font-semibold mb-3 text-zinc-900 dark:text-zinc-100">Hi, I'm James Gifford's AI hiring assistant.</h3>
-                        <p class="text-zinc-500 dark:text-zinc-400 text-[15px] leading-relaxed mb-2">I can discuss James's professional background, technical skills, salary expectations, and what he's looking for in his next role.</p>
-                        <p class="text-zinc-500 dark:text-zinc-400 text-[15px] leading-relaxed mb-8">Ask me anything.</p>
+        <div class="max-w-[720px] mx-auto px-6 py-8 pb-40 space-y-5">
+            @foreach ($messages as $index => $message)
+                @if ($index === 0 && $message['role'] === 'assistant' && count($messages) === 1)
+                    {{-- Greeting with suggested prompts --}}
+                    <div class="flex items-center justify-center h-full min-h-[50vh]">
+                        <div class="text-center max-w-md">
+                            <div class="flex items-center justify-center gap-2 mb-4">
+                                <span class="font-mono text-xs text-emerald-600 dark:text-emerald-400">// hiring assistant</span>
+                                <span
+                                    class="inline-block w-2 h-2 rounded-full"
+                                    :class="healthStatus === 'up' ? 'bg-emerald-500' : (healthStatus === 'down' ? 'bg-red-500' : 'bg-zinc-400')"
+                                    :title="healthStatus === 'up' ? 'AI service online' : (healthStatus === 'down' ? 'AI service offline' : 'Checking status...')"
+                                ></span>
+                            </div>
 
-                        <div class="flex flex-wrap justify-center gap-2">
-                            <button
-                                @click="fillPrompt('Tell me about James\'s experience')"
-                                class="px-4 py-2 rounded-full border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 transition-colors"
-                            >
-                                Tell me about James's experience
-                            </button>
-                            <button
-                                @click="fillPrompt('What\'s his tech stack?')"
-                                class="px-4 py-2 rounded-full border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 transition-colors"
-                            >
-                                What's his tech stack?
-                            </button>
-                            <button
-                                @click="fillPrompt('What are his salary expectations?')"
-                                class="px-4 py-2 rounded-full border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 transition-colors"
-                            >
-                                What are his salary expectations?
-                            </button>
-                            <button
-                                @click="fillPrompt('How was this assistant built?')"
-                                class="px-4 py-2 rounded-full border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 transition-colors"
-                            >
-                                How was this assistant built?
-                            </button>
+                            <div class="px-4 py-3 rounded-lg text-[15px] leading-[1.6] bg-zinc-50/95 border border-zinc-200 text-zinc-900 dark:bg-zinc-950/95 dark:border-zinc-800 dark:text-zinc-100 text-left mb-8">
+                                <div class="prose prose-zinc dark:prose-invert prose-sm max-w-none prose-pre:bg-zinc-100 prose-pre:dark:bg-zinc-800 prose-pre:font-mono prose-pre:text-sm prose-code:font-mono prose-code:text-sm prose-code:before:content-none prose-code:after:content-none prose-a:text-emerald-600 prose-a:dark:text-emerald-400">{!! \Illuminate\Support\Str::markdown($message['content']) !!}</div>
+                            </div>
+
+                            <div class="flex flex-wrap justify-center gap-2">
+                                <button
+                                    @click="fillPrompt('Tell me about James\'s experience')"
+                                    class="px-4 py-2 rounded-full border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 transition-colors"
+                                >
+                                    Tell me about James's experience
+                                </button>
+                                <button
+                                    @click="fillPrompt('What\'s his tech stack?')"
+                                    class="px-4 py-2 rounded-full border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 transition-colors"
+                                >
+                                    What's his tech stack?
+                                </button>
+                                <button
+                                    @click="fillPrompt('What are his salary expectations?')"
+                                    class="px-4 py-2 rounded-full border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 transition-colors"
+                                >
+                                    What are his salary expectations?
+                                </button>
+                                <button
+                                    @click="fillPrompt('How was this assistant built?')"
+                                    class="px-4 py-2 rounded-full border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 transition-colors"
+                                >
+                                    How was this assistant built?
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            @endif
-
-            @foreach ($messages as $index => $message)
+                @else
                 <div
                     wire:key="msg-{{ $index }}"
-                    class="flex {{ $message['role'] === 'user' ? 'justify-end' : 'justify-start' }} chat-message-enter"
+                    class="flex {{ $message['role'] === 'user' ? 'justify-end chat-message-user' : 'justify-start' }} chat-message-enter"
                 >
                     <div class="max-w-[85%]">
                         <div class="px-4 py-3 rounded-lg text-[15px] leading-[1.6] {{ $message['role'] === 'user' ? 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100' : 'bg-zinc-50/95 border border-zinc-200 text-zinc-900 dark:bg-zinc-950/95 dark:border-zinc-800 dark:text-zinc-100' }}">
@@ -101,6 +106,7 @@
                         </div>
                     </div>
                 </div>
+                @endif
             @endforeach
 
             {{-- Typing indicator --}}
@@ -160,23 +166,22 @@
 
     @script
     <script>
-        $wire.on('message-sent', () => {
+        function scrollToLastUserMessage() {
             $nextTick(() => {
-                const container = $refs.messagesContainer ?? document.querySelector('[x-ref="messagesContainer"]');
-                if (container) {
-                    container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
-                }
-            });
-        });
+                const container = document.querySelector('[x-ref="messagesContainer"]');
+                if (!container) return;
 
-        Livewire.hook('morph.updated', () => {
-            $nextTick(() => {
-                const container = $refs.messagesContainer ?? document.querySelector('[x-ref="messagesContainer"]');
-                if (container) {
-                    container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+                const userMessages = container.querySelectorAll('.chat-message-user');
+                const lastUserMessage = userMessages[userMessages.length - 1];
+
+                if (lastUserMessage) {
+                    lastUserMessage.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }
             });
-        });
+        }
+
+        $wire.on('message-sent', scrollToLastUserMessage);
+        Livewire.hook('morph.updated', scrollToLastUserMessage);
     </script>
     @endscript
 </div>
