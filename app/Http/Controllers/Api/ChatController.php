@@ -18,7 +18,7 @@ class ChatController extends Controller
     {
         $conversation = Conversation::firstOrCreate(
             ['session_key' => $request->validated('session_key')],
-            ['channel' => 'api', 'messages' => []],
+            ['channel' => 'api'],
         );
 
         $result = $this->aiService->chat($conversation, $request->validated('message'));
@@ -34,7 +34,7 @@ class ChatController extends Controller
     {
         $conversation = Conversation::firstOrCreate(
             ['session_key' => 'test-route'],
-            ['channel' => 'api', 'messages' => []],
+            ['channel' => 'api'],
         );
 
         $result = $this->aiService->chat($conversation, "What is James's primary tech stack?");

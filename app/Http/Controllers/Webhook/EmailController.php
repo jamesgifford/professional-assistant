@@ -46,7 +46,7 @@ class EmailController extends Controller
 
         $conversation = Conversation::firstOrCreate(
             ['session_key' => strtolower($sender)],
-            ['channel' => 'email', 'messages' => [], 'metadata' => []],
+            ['channel' => 'email', 'metadata' => []],
         );
 
         $metadata = $conversation->metadata ?? [];
@@ -62,6 +62,12 @@ class EmailController extends Controller
         } catch (\Throwable $e) {
             Log::error('AI provider failure for email', ['error' => $e->getMessage()]);
             $responseText = "I'm experiencing technical difficulties right now. Please try again shortly or reach James directly at james@jamesgifford.com";
+
+            $conversation->appendMessage('assistant', $responseText, [
+                'error' => true,
+                'exception' => get_class($e),
+                'exception_message' => $e->getMessage(),
+            ]);
         }
 
         $replySubject = str_starts_with(strtolower($subject), 're:')

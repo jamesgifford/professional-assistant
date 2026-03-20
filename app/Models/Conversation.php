@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Conversation extends Model
 {
@@ -12,30 +13,37 @@ class Conversation extends Model
     protected $fillable = [
         'session_key',
         'channel',
-        'messages',
         'provider_used',
         'metadata',
     ];
 
     /**
-     * @return array{messages: string, metadata: string}
+     * @return array{metadata: string}
      */
     protected function casts(): array
     {
         return [
-            'messages' => 'array',
             'metadata' => 'array',
         ];
     }
 
-    public function appendMessage(string $role, string $content): void
+    /**
+     * @return HasMany<Message, $this>
+     */
+    public function messages(): HasMany
     {
-        $messages = $this->messages ?? [];
-        $messages[] = [
+        return $this->hasMany(Message::class);
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $metadata
+     */
+    public function appendMessage(string $role, string $content, ?array $metadata = null): Message
+    {
+        return $this->messages()->create([
             'role' => $role,
             'content' => $content,
-            'timestamp' => now()->toIso8601String(),
-        ];
-        $this->messages = $messages;
+            'metadata' => $metadata,
+        ]);
     }
 }

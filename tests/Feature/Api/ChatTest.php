@@ -26,13 +26,12 @@ it('creates a new conversation and returns a response', function () {
 });
 
 it('continues an existing conversation', function () {
-    Conversation::factory()->api()->create([
+    $conversation = Conversation::factory()->api()->create([
         'session_key' => 'existing-session',
-        'messages' => [
-            ['role' => 'user', 'content' => 'Hi', 'timestamp' => now()->toIso8601String()],
-            ['role' => 'assistant', 'content' => 'Hello!', 'timestamp' => now()->toIso8601String()],
-        ],
     ]);
+
+    $conversation->appendMessage('user', 'Hi');
+    $conversation->appendMessage('assistant', 'Hello!');
 
     $response = $this->postJson('/api/chat', [
         'session_key' => 'existing-session',
@@ -41,7 +40,7 @@ it('continues an existing conversation', function () {
 
     $response->assertSuccessful();
 
-    $conversation = Conversation::where('session_key', 'existing-session')->first();
+    $conversation->refresh();
     expect($conversation->messages)->toHaveCount(4);
 });
 

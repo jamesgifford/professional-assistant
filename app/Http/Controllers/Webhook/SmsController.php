@@ -25,7 +25,7 @@ class SmsController extends Controller
 
         $conversation = Conversation::firstOrCreate(
             ['session_key' => $from],
-            ['channel' => 'sms', 'messages' => [], 'metadata' => []],
+            ['channel' => 'sms', 'metadata' => []],
         );
 
         $metadata = $conversation->metadata ?? [];
@@ -41,6 +41,12 @@ class SmsController extends Controller
         } catch (\Throwable $e) {
             Log::error('AI provider failure for SMS', ['error' => $e->getMessage()]);
             $responseText = "I'm experiencing technical difficulties right now. Please try again shortly or reach James directly at james@jamesgifford.com";
+
+            $conversation->appendMessage('assistant', $responseText, [
+                'error' => true,
+                'exception' => get_class($e),
+                'exception_message' => $e->getMessage(),
+            ]);
         }
 
         $twiml = $this->buildTwimlResponse($responseText);

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Ai\Agents\ProfessionalAssistant;
 use App\Models\Conversation;
+use App\Models\Message;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Laravel\Ai\Messages\AssistantMessage;
@@ -26,10 +27,28 @@ class AiProviderService
         if ($primaryHealth && ($primaryHealth['status'] ?? 'unknown') === 'down') {
             Log::info("Primary provider [{$primary}] is down, routing to fallback [{$fallback}]");
 
-            return [$fallback, $primary];
+            $providers = [$fallback, $primary];
+        } else {
+            $providers = [$primary, $fallback];
         }
 
-        return [$primary, $fallback];
+        $configured = array_values(array_filter($providers, fn (string $provider) => $this->hasCredentials($provider)));
+
+        if (empty($configured)) {
+            throw new \RuntimeException('No AI providers have API keys configured. Set at least one provider key in your .env file.');
+        }
+
+        return $configured;
+    }
+
+    /**
+     * Check if a provider has credentials configured.
+     */
+    private function hasCredentials(string $provider): bool
+    {
+        $key = config("ai.providers.{$provider}.key");
+
+        return filled($key);
     }
 
     /**
@@ -39,20 +58,20 @@ class AiProviderService
      */
     public function chat(Conversation $conversation, string $message): array
     {
-        $conversation->appendMessage('user', $message);
-
-        $messages = collect($conversation->messages ?? [])
-            ->slice(0, -1)
-            ->map(fn (array $msg) => match ($msg['role']) {
-                'assistant' => new AssistantMessage($msg['content']),
-                default => new UserMessage($msg['content']),
+        $previousMessages = $conversation->messages()
+            ->oldest()
+            ->get()
+            ->map(fn (Message $msg) => match ($msg->role) {
+                'assistant' => new AssistantMessage($msg->content),
+                default => new UserMessage($msg->content),
             })
-            ->values()
             ->all();
+
+        $conversation->appendMessage('user', $message);
 
         $providers = $this->getProviderOrder();
 
-        $agent = new ProfessionalAssistant($messages);
+        $agent = new ProfessionalAssistant($previousMessages);
 
         $response = $agent->prompt($message, provider: $providers);
 
@@ -60,8 +79,7 @@ class AiProviderService
         $providerUsed = $providers[0];
 
         $conversation->appendMessage('assistant', $responseText);
-        $conversation->provider_used = $providerUsed;
-        $conversation->save();
+        $conversation->update(['provider_used' => $providerUsed]);
 
         Log::info('AI response generated', [
             'session_key' => $conversation->session_key,

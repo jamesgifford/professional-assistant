@@ -18,7 +18,6 @@ class ConversationFactory extends Factory
         return [
             'session_key' => fake()->uuid(),
             'channel' => fake()->randomElement(['api', 'sms', 'email']),
-            'messages' => [],
             'provider_used' => null,
             'metadata' => null,
         ];
@@ -45,11 +44,8 @@ class ConversationFactory extends Factory
         ]);
     }
 
-    /**
-     * @param  array<array{role: string, content: string}>  $messages
-     */
-    public function withMessages(array $messages): static
+    public function web(): static
     {
-        return $this->state(fn () => ['messages' => $messages]);
+        return $this->state(fn () => ['channel' => 'web']);
     }
 }
