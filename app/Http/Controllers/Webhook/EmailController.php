@@ -6,14 +6,28 @@ use App\Http\Controllers\Controller;
 use App\Mail\ProfessionalAssistantReply;
 use App\Models\Conversation;
 use App\Services\AiProviderService;
+use EmailReplyParser\Parser\EmailParser;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Resend\Client as ResendClient;
 
 class EmailController extends Controller
 {
+    private const HOURLY_LIMIT = 10;
+
+    private const DAILY_LIMIT = 30;
+
+    private const BULK_SENDER_PREFIXES = [
+        'noreply@',
+        'no-reply@',
+        'marketing@',
+        'newsletter@',
+        'notifications@',
+    ];
+
     public function __construct(
         private AiProviderService $aiService,
         private ResendClient $resend,
@@ -30,8 +44,17 @@ class EmailController extends Controller
             $sender = $data['from'] ?? '';
             $subject = $data['subject'] ?? '';
             $originalMessageId = $data['id'] ?? null;
+            $attachments = $data['attachments'] ?? [];
 
             Log::info('Resend email received', ['sender' => $sender, 'subject' => $subject]);
+
+            if ($this->isBlacklisted($sender)) {
+                Log::info('Rejecting blacklisted sender', ['sender' => $sender]);
+
+                return response()->json(['status' => 'ignored', 'reason' => 'blacklisted']);
+            }
+
+            $isWhitelisted = $this->isWhitelisted($sender);
 
             if ($this->shouldIgnore($sender, $subject, $data)) {
                 Log::info('Ignoring email', ['sender' => $sender, 'reason' => 'auto-reply or loop']);
@@ -48,6 +71,13 @@ class EmailController extends Controller
             }
 
             $emailContent = $this->fetchEmailContent($emailId);
+
+            if (! $isWhitelisted && $this->isBulkEmail($sender, $emailContent)) {
+                Log::info('Ignoring bulk email', ['sender' => $sender]);
+
+                return response()->json(['status' => 'ignored', 'reason' => 'bulk email']);
+            }
+
             $body = $this->extractBody($emailContent);
 
             if (empty(trim($body))) {
@@ -58,16 +88,23 @@ class EmailController extends Controller
                 $subject = 'Professional Inquiry';
             }
 
+            $hasAttachments = ! empty($attachments);
+
+            if ($hasAttachments) {
+                $body = "[Note: The sender included file attachments with this email, but you cannot read them. Acknowledge this and suggest they paste relevant content directly.]\n\n".$body;
+            }
+
             $conversation = Conversation::firstOrCreate(
                 ['session_key' => strtolower($sender)],
                 ['channel' => 'email', 'metadata' => []],
             );
 
-            $metadata = $conversation->metadata ?? [];
-            $metadata['email'] = $sender;
-            $metadata['last_subject'] = $subject;
-            $metadata['last_message_id'] = $originalMessageId;
-            $conversation->metadata = $metadata;
+            $conversationMetadata = $conversation->metadata ?? [];
+            $conversationMetadata['email'] = $sender;
+            $conversationMetadata['subject'] = $subject;
+            $conversationMetadata['message_id'] = $originalMessageId;
+            $conversationMetadata['thread_id'] = $data['thread_id'] ?? $originalMessageId;
+            $conversation->metadata = $conversationMetadata;
             $conversation->channel = 'email';
             $conversation->save();
 
@@ -75,6 +112,19 @@ class EmailController extends Controller
                 'email' => $sender,
                 'subject' => $subject,
             ];
+
+            if ($hasAttachments) {
+                $messageMetadata['has_attachments'] = true;
+                $messageMetadata['attachment_count'] = count($attachments);
+            }
+
+            if (! $isWhitelisted) {
+                $rateLimitResponse = $this->checkRateLimit($sender, $conversation, $subject, $originalMessageId, $messageMetadata);
+
+                if ($rateLimitResponse) {
+                    return $rateLimitResponse;
+                }
+            }
 
             try {
                 $result = $this->aiService->chat($conversation, $body, $messageMetadata);
@@ -111,6 +161,20 @@ class EmailController extends Controller
         }
     }
 
+    private function isWhitelisted(string $sender): bool
+    {
+        $whitelist = config('services.resend.whitelist', []);
+
+        return in_array(strtolower($sender), array_map('strtolower', $whitelist));
+    }
+
+    private function isBlacklisted(string $sender): bool
+    {
+        $blacklist = config('services.resend.blacklist', []);
+
+        return in_array(strtolower($sender), array_map('strtolower', $blacklist));
+    }
+
     private function shouldIgnore(string $sender, string $subject, array $data): bool
     {
         $senderLower = strtolower($sender);
@@ -143,9 +207,88 @@ class EmailController extends Controller
     }
 
     /**
+     * Check if this is a bulk/marketing email based on headers and sender prefix.
+     *
+     * @param  array{text: string|null, html: string|null, headers: array}  $emailContent
+     */
+    private function isBulkEmail(string $sender, array $emailContent): bool
+    {
+        $senderLower = strtolower($sender);
+
+        foreach (self::BULK_SENDER_PREFIXES as $prefix) {
+            if (str_starts_with($senderLower, $prefix)) {
+                return true;
+            }
+        }
+
+        foreach ($emailContent['headers'] as $header) {
+            $name = strtolower($header['name'] ?? '');
+            $value = strtolower($header['value'] ?? '');
+
+            if ($name === 'list-unsubscribe') {
+                return true;
+            }
+
+            if ($name === 'precedence' && in_array($value, ['bulk', 'list'])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check per-sender rate limits. Returns a response if rate-limited, null otherwise.
+     *
+     * @param  array<string, mixed>  $messageMetadata
+     */
+    private function checkRateLimit(
+        string $sender,
+        Conversation $conversation,
+        string $subject,
+        ?string $originalMessageId,
+        array $messageMetadata,
+    ): ?JsonResponse {
+        $emailKey = strtolower($sender);
+        $hourKey = "email_rate:{$emailKey}:hour";
+        $dayKey = "email_rate:{$emailKey}:day";
+
+        $hourCount = (int) Cache::get($hourKey, 0);
+        $dayCount = (int) Cache::get($dayKey, 0);
+
+        if ($hourCount >= self::HOURLY_LIMIT || $dayCount >= self::DAILY_LIMIT) {
+            Log::info('Email rate limited', ['sender' => $sender, 'hour' => $hourCount, 'day' => $dayCount]);
+
+            $rateLimitMessage = "I've reached my conversation limit. Please try again later, or reach James directly at james@jamesgifford.com";
+
+            $conversation->appendMessage('user', '[rate limited]', $messageMetadata);
+            $conversation->appendMessage('assistant', $rateLimitMessage, array_merge($messageMetadata, [
+                'rate_limited' => true,
+            ]));
+
+            $replySubject = str_starts_with(strtolower($subject), 're:')
+                ? $subject
+                : "Re: {$subject}";
+
+            Mail::to($sender)->send(new ProfessionalAssistantReply(
+                $rateLimitMessage,
+                $replySubject,
+                $originalMessageId,
+            ));
+
+            return response()->json(['status' => 'rate_limited']);
+        }
+
+        Cache::put($hourKey, $hourCount + 1, now()->addMinutes(60));
+        Cache::put($dayKey, $dayCount + 1, now()->addHours(24));
+
+        return null;
+    }
+
+    /**
      * Fetch the full email content from Resend's Received Emails API.
      *
-     * @return array{text: string|null, html: string|null}
+     * @return array{text: string|null, html: string|null, headers: array}
      */
     private function fetchEmailContent(string $emailId): array
     {
@@ -154,9 +297,13 @@ class EmailController extends Controller
         return [
             'text' => $email['text'] ?? null,
             'html' => $email['html'] ?? null,
+            'headers' => $email['headers'] ?? [],
         ];
     }
 
+    /**
+     * @param  array{text: string|null, html: string|null, headers: array}  $data
+     */
     private function extractBody(array $data): string
     {
         $body = $data['text'] ?? '';
@@ -166,24 +313,46 @@ class EmailController extends Controller
             $body = strip_tags($html);
         }
 
+        if (empty(trim($body))) {
+            return '';
+        }
+
         return $this->stripQuotedContent($body);
     }
 
     private function stripQuotedContent(string $body): string
     {
+        $parsed = (new EmailParser)->parse($body);
+        $visibleText = $parsed->getVisibleText();
+
+        return $this->stripRemainingNoise($visibleText);
+    }
+
+    private function stripRemainingNoise(string $body): string
+    {
         $lines = explode("\n", $body);
         $cleaned = [];
 
         foreach ($lines as $line) {
-            if (str_starts_with(trim($line), '>')) {
+            $trimmed = trim($line);
+
+            if (str_starts_with($trimmed, '>')) {
                 continue;
             }
 
-            if (trim($line) === '--' || str_starts_with(trim($line), '___')) {
+            if ($trimmed === '--') {
                 break;
             }
 
-            if (preg_match('/^On .+ wrote:$/i', trim($line))) {
+            if (str_starts_with($trimmed, '___')) {
+                break;
+            }
+
+            if (preg_match('/^On .+ wrote:$/i', $trimmed)) {
+                break;
+            }
+
+            if (preg_match('/^(Sent from my (iPhone|iPad)|Sent from Outlook|Get Outlook for)/i', $trimmed)) {
                 break;
             }
 

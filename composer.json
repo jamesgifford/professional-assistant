@@ -18,7 +18,8 @@
         "livewire/livewire": "^4.1",
         "resend/resend-php": "^1.1",
         "svix/svix": "^1.89",
-        "twilio/sdk": "^8.11"
+        "twilio/sdk": "^8.11",
+        "willdurand/email-reply-parser": "^2.10"
     },
     "require-dev": {
         "fakerphp/faker": "^1.24",

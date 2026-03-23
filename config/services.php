@@ -22,6 +22,8 @@ return [
         'key' => env('RESEND_API_KEY'),
         'inbound_address' => env('RESEND_INBOUND_ADDRESS', 'ask@jamesgifford.ai'),
         'webhook_secret' => env('RESEND_WEBHOOK_SECRET'),
+        'whitelist' => array_filter(explode(',', env('RESEND_WHITELIST', ''))),
+        'blacklist' => array_filter(explode(',', env('RESEND_BLACKLIST', ''))),
     ],
 
     'ses' => [
