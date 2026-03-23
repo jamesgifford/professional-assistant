@@ -82,7 +82,19 @@ class AiProviderService
         $responseText = (string) $response;
         $providerUsed = $providers[0];
 
-        $conversation->appendMessage('assistant', $responseText, $messageMetadata);
+        $toolNames = $response->toolCalls
+            ->map(fn ($toolCall) => $toolCall->name)
+            ->unique()
+            ->values()
+            ->all();
+
+        $assistantMetadata = $messageMetadata ?? [];
+
+        if (! empty($toolNames)) {
+            $assistantMetadata['tools'] = $toolNames;
+        }
+
+        $conversation->appendMessage('assistant', $responseText, $assistantMetadata ?: null);
         $conversation->update(['provider_used' => $providerUsed]);
 
         Log::info('AI response generated', [

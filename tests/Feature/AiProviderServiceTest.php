@@ -1,5 +1,7 @@
 <?php
 
+use App\Ai\Agents\ProfessionalAssistant;
+use App\Models\Conversation;
 use App\Services\AiProviderService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
@@ -51,4 +53,33 @@ it('skips unhealthy provider if it has no credentials', function () {
     $service = new AiProviderService;
 
     expect($service->getProviderOrder())->toBe(['openai']);
+});
+
+it('omits tools key from assistant metadata when no tools are called', function () {
+    ProfessionalAssistant::fake(['James has 20 years of experience.']);
+
+    $conversation = Conversation::factory()->api()->create();
+    $service = new AiProviderService;
+
+    $service->chat($conversation, 'Tell me about James.');
+
+    $assistantMessage = $conversation->messages()->where('role', 'assistant')->first();
+
+    expect($assistantMessage->metadata)->toBeNull();
+});
+
+it('omits tools key from assistant metadata when no tools called and channel metadata exists', function () {
+    ProfessionalAssistant::fake(['James has 20 years of experience.']);
+
+    $conversation = Conversation::factory()->api()->create();
+    $service = new AiProviderService;
+
+    $service->chat($conversation, 'Tell me about James.', ['channel' => 'sms']);
+
+    $assistantMessage = $conversation->messages()->where('role', 'assistant')->first();
+
+    expect($assistantMessage->metadata)
+        ->toBeArray()
+        ->toHaveKey('channel', 'sms')
+        ->not->toHaveKey('tools');
 });
