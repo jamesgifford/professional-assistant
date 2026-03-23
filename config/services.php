@@ -20,7 +20,7 @@ return [
 
     'resend' => [
         'key' => env('RESEND_API_KEY'),
-        'inbound_address' => env('RESEND_INBOUND_ADDRESS', 'prompt@jamesgifford.ai'),
+        'inbound_address' => env('RESEND_INBOUND_ADDRESS', 'ask@jamesgifford.ai'),
         'webhook_secret' => env('RESEND_WEBHOOK_SECRET'),
     ],
 

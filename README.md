@@ -66,12 +66,12 @@ TWILIO_PHONE_NUMBER=+15551234567
 
 # Resend (required for email)
 RESEND_API_KEY=re_...
-RESEND_INBOUND_ADDRESS=prompt@jamesgifford.ai
+RESEND_INBOUND_ADDRESS=ask@jamesgifford.ai
 RESEND_WEBHOOK_SECRET=whsec_...
 
 # Mail (uses Resend as the transport)
 MAIL_MAILER=resend
-MAIL_FROM_ADDRESS=prompt@jamesgifford.ai
+MAIL_FROM_ADDRESS=ask@jamesgifford.ai
 MAIL_FROM_NAME="James Gifford's AI Assistant"
 ```
 
@@ -173,10 +173,10 @@ Webhook signature validation is bypassed in `local` and `testing` environments.
 
 ```env
 RESEND_API_KEY=re_...              # Your Resend API key
-RESEND_INBOUND_ADDRESS=prompt@jamesgifford.ai  # The email address receiving inbound mail
+RESEND_INBOUND_ADDRESS=ask@jamesgifford.ai  # The email address receiving inbound mail
 RESEND_WEBHOOK_SECRET=whsec_...    # Webhook signing secret from Resend dashboard
 MAIL_MAILER=resend                 # Use Resend as the mail transport
-MAIL_FROM_ADDRESS=prompt@jamesgifford.ai
+MAIL_FROM_ADDRESS=ask@jamesgifford.ai
 MAIL_FROM_NAME="James Gifford's AI Assistant"
 ```
 

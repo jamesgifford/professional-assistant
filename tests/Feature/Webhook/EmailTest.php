@@ -39,7 +39,7 @@ it('handles an incoming Resend email and sends a reply', function () {
             'id' => 'em_test123',
             'email_id' => 'em_test123',
             'from' => 'recruiter@example.com',
-            'to' => ['prompt@jamesgifford.ai'],
+            'to' => ['ask@jamesgifford.ai'],
             'subject' => 'Senior Engineer Position',
         ],
     ]);
@@ -66,7 +66,7 @@ it('stores channel on individual messages', function () {
             'id' => 'em_chan123',
             'email_id' => 'em_chan123',
             'from' => 'hr@company.com',
-            'to' => ['prompt@jamesgifford.ai'],
+            'to' => ['ask@jamesgifford.ai'],
             'subject' => 'Role Inquiry',
         ],
     ]);
@@ -92,7 +92,7 @@ it('prepends Re: to the subject if not already present', function () {
             'id' => 'em_subj1',
             'email_id' => 'em_subj1',
             'from' => 'hr@company.com',
-            'to' => ['prompt@jamesgifford.ai'],
+            'to' => ['ask@jamesgifford.ai'],
             'subject' => 'Engineering Role',
         ],
     ]);
@@ -111,7 +111,7 @@ it('does not double prepend Re:', function () {
             'id' => 'em_subj2',
             'email_id' => 'em_subj2',
             'from' => 'hr@company.com',
-            'to' => ['prompt@jamesgifford.ai'],
+            'to' => ['ask@jamesgifford.ai'],
             'subject' => 'Re: Engineering Role',
         ],
     ]);
@@ -130,7 +130,7 @@ it('passes the original message ID for threading', function () {
             'id' => 'em_thread456',
             'email_id' => 'em_thread456',
             'from' => 'test@example.com',
-            'to' => ['prompt@jamesgifford.ai'],
+            'to' => ['ask@jamesgifford.ai'],
             'subject' => 'Question',
         ],
     ]);
@@ -147,7 +147,7 @@ it('ignores auto-reply emails from mailer-daemon', function () {
             'id' => 'em_auto1',
             'email_id' => 'em_auto1',
             'from' => 'mailer-daemon@example.com',
-            'to' => ['prompt@jamesgifford.ai'],
+            'to' => ['ask@jamesgifford.ai'],
             'subject' => 'Undeliverable',
         ],
     ]);
@@ -165,7 +165,7 @@ it('ignores out of office replies', function () {
             'id' => 'em_ooo1',
             'email_id' => 'em_ooo1',
             'from' => 'person@example.com',
-            'to' => ['prompt@jamesgifford.ai'],
+            'to' => ['ask@jamesgifford.ai'],
             'subject' => 'Out of Office Auto-Reply',
         ],
     ]);
@@ -183,7 +183,7 @@ it('ignores noreply senders', function () {
             'id' => 'em_noreply1',
             'email_id' => 'em_noreply1',
             'from' => 'noreply@company.com',
-            'to' => ['prompt@jamesgifford.ai'],
+            'to' => ['ask@jamesgifford.ai'],
             'subject' => 'Notification',
         ],
     ]);
@@ -195,15 +195,15 @@ it('ignores noreply senders', function () {
 });
 
 it('ignores emails from the inbound address to prevent loops', function () {
-    config(['services.resend.inbound_address' => 'prompt@jamesgifford.ai']);
+    config(['services.resend.inbound_address' => 'ask@jamesgifford.ai']);
 
     $response = $this->postJson('/webhook/resend/inbound', [
         'type' => 'email.received',
         'data' => [
             'id' => 'em_loop1',
             'email_id' => 'em_loop1',
-            'from' => 'prompt@jamesgifford.ai',
-            'to' => ['prompt@jamesgifford.ai'],
+            'from' => 'ask@jamesgifford.ai',
+            'to' => ['ask@jamesgifford.ai'],
             'subject' => 'Loop test',
         ],
     ]);
@@ -223,7 +223,7 @@ it('uses default subject when none is provided', function () {
             'id' => 'em_nosub',
             'email_id' => 'em_nosub',
             'from' => 'test@example.com',
-            'to' => ['prompt@jamesgifford.ai'],
+            'to' => ['ask@jamesgifford.ai'],
             'subject' => '',
         ],
     ]);
@@ -242,7 +242,7 @@ it('ignores emails with empty body', function () {
             'id' => 'em_empty',
             'email_id' => 'em_empty',
             'from' => 'empty@example.com',
-            'to' => ['prompt@jamesgifford.ai'],
+            'to' => ['ask@jamesgifford.ai'],
             'subject' => 'Empty',
         ],
     ]);
@@ -260,7 +260,7 @@ it('falls back to HTML body when text is empty', function () {
             'id' => 'em_html1',
             'email_id' => 'em_html1',
             'from' => 'html@example.com',
-            'to' => ['prompt@jamesgifford.ai'],
+            'to' => ['ask@jamesgifford.ai'],
             'subject' => 'HTML Email',
         ],
     ]);
@@ -296,7 +296,7 @@ it('strips quoted reply content from email body', function () {
             'id' => 'em_quoted',
             'email_id' => 'em_quoted',
             'from' => 'quoter@example.com',
-            'to' => ['prompt@jamesgifford.ai'],
+            'to' => ['ask@jamesgifford.ai'],
             'subject' => 'Re: Follow up',
         ],
     ]);
@@ -313,7 +313,7 @@ it('ignores webhooks missing email_id', function () {
         'data' => [
             'id' => 'em_noid',
             'from' => 'test@example.com',
-            'to' => ['prompt@jamesgifford.ai'],
+            'to' => ['ask@jamesgifford.ai'],
             'subject' => 'No email_id',
         ],
     ]);
