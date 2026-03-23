@@ -4,22 +4,43 @@ use App\Ai\Agents\ProfessionalAssistant;
 use App\Mail\ProfessionalAssistantReply;
 use App\Models\Conversation;
 use Illuminate\Support\Facades\Mail;
+use Resend\Client as ResendClient;
+use Resend\Emails\Receiving;
 
 beforeEach(function () {
     ProfessionalAssistant::fake(['James is available for remote roles.']);
     Mail::fake();
 });
 
+function mockResendReceiving(string $text = '', ?string $html = null): void
+{
+    $receiving = Mockery::mock();
+    $receiving->shouldReceive('get')
+        ->andReturn(new Receiving([
+            'text' => $text,
+            'html' => $html,
+        ]));
+
+    $emails = Mockery::mock();
+    $emails->receiving = $receiving;
+
+    $client = Mockery::mock(ResendClient::class);
+    $client->emails = $emails;
+
+    app()->instance(ResendClient::class, $client);
+}
+
 it('handles an incoming Resend email and sends a reply', function () {
+    mockResendReceiving('Is James available for a new role?');
+
     $response = $this->postJson('/webhook/resend/inbound', [
         'type' => 'email.received',
         'data' => [
             'id' => 'em_test123',
+            'email_id' => 'em_test123',
             'from' => 'recruiter@example.com',
             'to' => ['prompt@jamesgifford.ai'],
             'subject' => 'Senior Engineer Position',
-            'text' => 'Is James available for a new role?',
-            'html' => null,
         ],
     ]);
 
@@ -37,15 +58,16 @@ it('handles an incoming Resend email and sends a reply', function () {
 });
 
 it('stores channel on individual messages', function () {
+    mockResendReceiving('Tell me about James.');
+
     $this->postJson('/webhook/resend/inbound', [
         'type' => 'email.received',
         'data' => [
             'id' => 'em_chan123',
+            'email_id' => 'em_chan123',
             'from' => 'hr@company.com',
             'to' => ['prompt@jamesgifford.ai'],
             'subject' => 'Role Inquiry',
-            'text' => 'Tell me about James.',
-            'html' => null,
         ],
     ]);
 
@@ -62,15 +84,16 @@ it('stores channel on individual messages', function () {
 });
 
 it('prepends Re: to the subject if not already present', function () {
+    mockResendReceiving('Tell me about James.');
+
     $this->postJson('/webhook/resend/inbound', [
         'type' => 'email.received',
         'data' => [
             'id' => 'em_subj1',
+            'email_id' => 'em_subj1',
             'from' => 'hr@company.com',
             'to' => ['prompt@jamesgifford.ai'],
             'subject' => 'Engineering Role',
-            'text' => 'Tell me about James.',
-            'html' => null,
         ],
     ]);
 
@@ -80,15 +103,16 @@ it('prepends Re: to the subject if not already present', function () {
 });
 
 it('does not double prepend Re:', function () {
+    mockResendReceiving('Thanks for the info.');
+
     $this->postJson('/webhook/resend/inbound', [
         'type' => 'email.received',
         'data' => [
             'id' => 'em_subj2',
+            'email_id' => 'em_subj2',
             'from' => 'hr@company.com',
             'to' => ['prompt@jamesgifford.ai'],
             'subject' => 'Re: Engineering Role',
-            'text' => 'Thanks for the info.',
-            'html' => null,
         ],
     ]);
 
@@ -98,15 +122,16 @@ it('does not double prepend Re:', function () {
 });
 
 it('passes the original message ID for threading', function () {
+    mockResendReceiving('Hello');
+
     $this->postJson('/webhook/resend/inbound', [
         'type' => 'email.received',
         'data' => [
             'id' => 'em_thread456',
+            'email_id' => 'em_thread456',
             'from' => 'test@example.com',
             'to' => ['prompt@jamesgifford.ai'],
             'subject' => 'Question',
-            'text' => 'Hello',
-            'html' => null,
         ],
     ]);
 
@@ -120,11 +145,10 @@ it('ignores auto-reply emails from mailer-daemon', function () {
         'type' => 'email.received',
         'data' => [
             'id' => 'em_auto1',
+            'email_id' => 'em_auto1',
             'from' => 'mailer-daemon@example.com',
             'to' => ['prompt@jamesgifford.ai'],
             'subject' => 'Undeliverable',
-            'text' => 'Message not delivered.',
-            'html' => null,
         ],
     ]);
 
@@ -139,11 +163,10 @@ it('ignores out of office replies', function () {
         'type' => 'email.received',
         'data' => [
             'id' => 'em_ooo1',
+            'email_id' => 'em_ooo1',
             'from' => 'person@example.com',
             'to' => ['prompt@jamesgifford.ai'],
             'subject' => 'Out of Office Auto-Reply',
-            'text' => 'I am out of the office.',
-            'html' => null,
         ],
     ]);
 
@@ -158,11 +181,10 @@ it('ignores noreply senders', function () {
         'type' => 'email.received',
         'data' => [
             'id' => 'em_noreply1',
+            'email_id' => 'em_noreply1',
             'from' => 'noreply@company.com',
             'to' => ['prompt@jamesgifford.ai'],
             'subject' => 'Notification',
-            'text' => 'Some notification.',
-            'html' => null,
         ],
     ]);
 
@@ -179,11 +201,10 @@ it('ignores emails from the inbound address to prevent loops', function () {
         'type' => 'email.received',
         'data' => [
             'id' => 'em_loop1',
+            'email_id' => 'em_loop1',
             'from' => 'prompt@jamesgifford.ai',
             'to' => ['prompt@jamesgifford.ai'],
             'subject' => 'Loop test',
-            'text' => 'This should be ignored.',
-            'html' => null,
         ],
     ]);
 
@@ -194,15 +215,16 @@ it('ignores emails from the inbound address to prevent loops', function () {
 });
 
 it('uses default subject when none is provided', function () {
+    mockResendReceiving('Hello');
+
     $this->postJson('/webhook/resend/inbound', [
         'type' => 'email.received',
         'data' => [
             'id' => 'em_nosub',
+            'email_id' => 'em_nosub',
             'from' => 'test@example.com',
             'to' => ['prompt@jamesgifford.ai'],
             'subject' => '',
-            'text' => 'Hello',
-            'html' => null,
         ],
     ]);
 
@@ -212,15 +234,16 @@ it('uses default subject when none is provided', function () {
 });
 
 it('ignores emails with empty body', function () {
+    mockResendReceiving('');
+
     $response = $this->postJson('/webhook/resend/inbound', [
         'type' => 'email.received',
         'data' => [
             'id' => 'em_empty',
+            'email_id' => 'em_empty',
             'from' => 'empty@example.com',
             'to' => ['prompt@jamesgifford.ai'],
             'subject' => 'Empty',
-            'text' => '',
-            'html' => null,
         ],
     ]);
 
@@ -229,15 +252,16 @@ it('ignores emails with empty body', function () {
 });
 
 it('falls back to HTML body when text is empty', function () {
+    mockResendReceiving('', '<p>Tell me about James.</p>');
+
     $this->postJson('/webhook/resend/inbound', [
         'type' => 'email.received',
         'data' => [
             'id' => 'em_html1',
+            'email_id' => 'em_html1',
             'from' => 'html@example.com',
             'to' => ['prompt@jamesgifford.ai'],
             'subject' => 'HTML Email',
-            'text' => '',
-            'html' => '<p>Tell me about James.</p>',
         ],
     ]);
 
@@ -264,15 +288,16 @@ it('ignores unsupported event types', function () {
 });
 
 it('strips quoted reply content from email body', function () {
+    mockResendReceiving("What about his salary?\n\nOn March 22, 2026 someone wrote:\n> Previous message content here");
+
     $this->postJson('/webhook/resend/inbound', [
         'type' => 'email.received',
         'data' => [
             'id' => 'em_quoted',
+            'email_id' => 'em_quoted',
             'from' => 'quoter@example.com',
             'to' => ['prompt@jamesgifford.ai'],
             'subject' => 'Re: Follow up',
-            'text' => "What about his salary?\n\nOn March 22, 2026 someone wrote:\n> Previous message content here",
-            'html' => null,
         ],
     ]);
 
@@ -280,4 +305,21 @@ it('strips quoted reply content from email body', function () {
     $userMessage = $conversation->messages()->where('role', 'user')->first();
 
     expect($userMessage->content)->toBe('What about his salary?');
+});
+
+it('ignores webhooks missing email_id', function () {
+    $response = $this->postJson('/webhook/resend/inbound', [
+        'type' => 'email.received',
+        'data' => [
+            'id' => 'em_noid',
+            'from' => 'test@example.com',
+            'to' => ['prompt@jamesgifford.ai'],
+            'subject' => 'No email_id',
+        ],
+    ]);
+
+    $response->assertSuccessful()
+        ->assertJson(['status' => 'ignored', 'reason' => 'missing email_id']);
+
+    Mail::assertNothingSent();
 });

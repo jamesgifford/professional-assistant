@@ -10,11 +10,13 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Resend\Client as ResendClient;
 
 class EmailController extends Controller
 {
     public function __construct(
         private AiProviderService $aiService,
+        private ResendClient $resend,
     ) {}
 
     public function __invoke(Request $request): JsonResponse
@@ -37,7 +39,16 @@ class EmailController extends Controller
                 return response()->json(['status' => 'ignored', 'reason' => 'auto-reply']);
             }
 
-            $body = $this->extractBody($data);
+            $emailId = $data['email_id'] ?? null;
+
+            if (empty($emailId)) {
+                Log::warning('Resend webhook missing email_id', ['data' => $data]);
+
+                return response()->json(['status' => 'ignored', 'reason' => 'missing email_id']);
+            }
+
+            $emailContent = $this->fetchEmailContent($emailId);
+            $body = $this->extractBody($emailContent);
 
             if (empty(trim($body))) {
                 return response()->json(['status' => 'ignored', 'reason' => 'empty body']);
@@ -124,6 +135,21 @@ class EmailController extends Controller
         }
 
         return false;
+    }
+
+    /**
+     * Fetch the full email content from Resend's Received Emails API.
+     *
+     * @return array{text: string|null, html: string|null}
+     */
+    private function fetchEmailContent(string $emailId): array
+    {
+        $email = $this->resend->emails->receiving->get($emailId);
+
+        return [
+            'text' => $email['text'] ?? null,
+            'html' => $email['html'] ?? null,
+        ];
     }
 
     private function extractBody(array $data): string
