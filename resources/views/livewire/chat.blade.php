@@ -215,6 +215,11 @@
                 @enderror
             </form>
             <p class="font-mono text-xs text-zinc-400 dark:text-zinc-600 text-center mt-3">Responses are AI-generated and may not be perfectly accurate.<br>For definitive answers, contact James directly.</p>
+            <p class="font-mono text-xs text-zinc-400 dark:text-zinc-600 text-center mt-1.5">
+                <a href="{{ route('privacy') }}" class="hover:text-zinc-600 dark:hover:text-zinc-400 transition-colors">Privacy Policy</a>
+                <span class="mx-1">&middot;</span>
+                <a href="{{ route('terms') }}" class="hover:text-zinc-600 dark:hover:text-zinc-400 transition-colors">Terms &amp; Conditions</a>
+            </p>
         </div>
     </div>
 
