@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Webhook;
 
 use App\Http\Controllers\Controller;
 use App\Models\Conversation;
+use App\Models\SmsBlocklist;
 use App\Services\AiProviderService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -25,6 +26,24 @@ class SmsController extends Controller
     private const FIRST_MESSAGE_HINT = '[This is the first message from this sender. Briefly introduce yourself as James Gifford\'s AI professional assistant before answering their question.]';
 
     private const MAX_RESPONSE_LENGTH = 1600;
+
+    /**
+     * Twilio metadata fields to extract and their corresponding metadata keys.
+     *
+     * @var array<string, string>
+     */
+    private const TWILIO_METADATA_FIELDS = [
+        'FromCity' => 'from_city',
+        'FromState' => 'from_state',
+        'FromZip' => 'from_zip',
+        'FromCountry' => 'from_country',
+        'ToCity' => 'to_city',
+        'ToState' => 'to_state',
+        'ToZip' => 'to_zip',
+        'ToCountry' => 'to_country',
+        'NumSegments' => 'num_segments',
+        'MessagingServiceSid' => 'messaging_service_sid',
+    ];
 
     public function __construct(
         private AiProviderService $aiService,
@@ -64,7 +83,7 @@ class SmsController extends Controller
                 return $this->handleHelp();
             }
 
-            // Blocklist check
+            // Blocklist check (persistent database + env config)
             if ($this->isBlocklisted($from)) {
                 Log::info('Rejecting blocklisted SMS sender', ['from' => $maskedPhone]);
 
@@ -109,25 +128,20 @@ class SmsController extends Controller
                 ['channel' => 'sms', 'metadata' => []],
             );
 
-            // Update conversation metadata with Twilio data
-            $metadata = $conversation->metadata ?? [];
-            $metadata['phone_number'] = $from;
-            $metadata['twilio_message_sid'] = $messageSid;
+            // Build Twilio metadata — merge with existing, omitting blank values
+            $twilioMetadata = array_filter([
+                'phone_number' => $from,
+                'twilio_message_sid' => $messageSid,
+            ]);
 
-            if ($request->input('FromCity')) {
-                $metadata['city'] = $request->input('FromCity');
-            }
-            if ($request->input('FromState')) {
-                $metadata['state'] = $request->input('FromState');
-            }
-            if ($request->input('FromCountry')) {
-                $metadata['country'] = $request->input('FromCountry');
+            foreach (self::TWILIO_METADATA_FIELDS as $twilioField => $metadataKey) {
+                $value = trim((string) $request->input($twilioField, ''));
+                if ($value !== '') {
+                    $twilioMetadata[$metadataKey] = $value;
+                }
             }
 
-            if (! empty($mediaMetadata)) {
-                $metadata = array_merge($metadata, $mediaMetadata);
-            }
-
+            $metadata = array_merge($conversation->metadata ?? [], $twilioMetadata, $mediaMetadata);
             $conversation->metadata = $metadata;
             $conversation->channel = 'sms';
             $conversation->save();
@@ -200,10 +214,15 @@ class SmsController extends Controller
 
     private function isBlocklisted(string $from): bool
     {
-        $blocklist = config('services.twilio.blocklist', []);
-        $dynamicBlocklist = Cache::get('sms_blocklist', []);
+        // Check persistent database blocklist
+        if (SmsBlocklist::where('phone_number', $from)->exists()) {
+            return true;
+        }
 
-        return in_array($from, $blocklist) || in_array($from, $dynamicBlocklist);
+        // Check env config blocklist
+        $configBlocklist = config('services.twilio.blocklist', []);
+
+        return in_array($from, $configBlocklist);
     }
 
     private function isOnAllowlist(string $from): bool
@@ -227,12 +246,10 @@ class SmsController extends Controller
 
     private function handleOptOut(string $from): Response
     {
-        $blocklist = Cache::get('sms_blocklist', []);
-
-        if (! in_array($from, $blocklist)) {
-            $blocklist[] = $from;
-            Cache::forever('sms_blocklist', $blocklist);
-        }
+        SmsBlocklist::firstOrCreate(
+            ['phone_number' => $from],
+            ['reason' => 'opt_out'],
+        );
 
         return $this->buildTwimlResponse(
             "You've been unsubscribed. You will no longer receive messages from this assistant."
@@ -241,9 +258,7 @@ class SmsController extends Controller
 
     private function handleOptIn(string $from): Response
     {
-        $blocklist = Cache::get('sms_blocklist', []);
-        $blocklist = array_values(array_filter($blocklist, fn ($number) => $number !== $from));
-        Cache::forever('sms_blocklist', $blocklist);
+        SmsBlocklist::where('phone_number', $from)->delete();
 
         return $this->buildTwimlResponse(
             "You've been resubscribed. Send a message to start a conversation with James Gifford's AI professional assistant."

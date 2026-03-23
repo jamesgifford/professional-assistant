@@ -2,6 +2,7 @@
 
 use App\Ai\Agents\ProfessionalAssistant;
 use App\Models\Conversation;
+use App\Models\SmsBlocklist;
 use Illuminate\Support\Facades\Cache;
 
 beforeEach(function () {
@@ -65,13 +66,65 @@ it('stores geographic metadata from Twilio', function () {
         'MessageSid' => 'SM_GEO',
         'FromCity' => 'Portland',
         'FromState' => 'OR',
+        'FromZip' => '97219',
         'FromCountry' => 'US',
+        'ToCity' => 'Portland',
+        'ToState' => 'OR',
+        'ToZip' => '97201',
+        'ToCountry' => 'US',
+        'NumSegments' => '1',
+        'MessagingServiceSid' => 'MG9c142aa8bde793108ca6d49ee09afcad',
     ]);
 
     $conversation = Conversation::where('session_key', '+15551234567')->first();
-    expect($conversation->metadata['city'])->toBe('Portland');
-    expect($conversation->metadata['state'])->toBe('OR');
-    expect($conversation->metadata['country'])->toBe('US');
+    expect($conversation->metadata['from_city'])->toBe('Portland');
+    expect($conversation->metadata['from_state'])->toBe('OR');
+    expect($conversation->metadata['from_zip'])->toBe('97219');
+    expect($conversation->metadata['from_country'])->toBe('US');
+    expect($conversation->metadata['to_city'])->toBe('Portland');
+    expect($conversation->metadata['to_state'])->toBe('OR');
+    expect($conversation->metadata['to_zip'])->toBe('97201');
+    expect($conversation->metadata['to_country'])->toBe('US');
+    expect($conversation->metadata['num_segments'])->toBe('1');
+    expect($conversation->metadata['messaging_service_sid'])->toBe('MG9c142aa8bde793108ca6d49ee09afcad');
+});
+
+it('omits blank geographic metadata fields', function () {
+    $this->postJson('/webhook/sms', [
+        'From' => '+15551234567',
+        'Body' => 'Hello',
+        'MessageSid' => 'SM_GEO_PARTIAL',
+        'FromState' => 'OR',
+        'FromCountry' => 'US',
+        'FromCity' => '',
+        'FromZip' => '',
+    ]);
+
+    $conversation = Conversation::where('session_key', '+15551234567')->first();
+    expect($conversation->metadata['from_state'])->toBe('OR');
+    expect($conversation->metadata['from_country'])->toBe('US');
+    expect($conversation->metadata)->not->toHaveKey('from_city');
+    expect($conversation->metadata)->not->toHaveKey('from_zip');
+});
+
+it('merges new metadata with existing metadata', function () {
+    $conversation = Conversation::create([
+        'session_key' => '+15551234567',
+        'channel' => 'sms',
+        'metadata' => ['custom_field' => 'preserved'],
+    ]);
+
+    $this->postJson('/webhook/sms', [
+        'From' => '+15551234567',
+        'Body' => 'Hello',
+        'MessageSid' => 'SM_MERGE',
+        'FromState' => 'OR',
+    ]);
+
+    $conversation->refresh();
+    expect($conversation->metadata['custom_field'])->toBe('preserved');
+    expect($conversation->metadata['from_state'])->toBe('OR');
+    expect($conversation->metadata['twilio_message_sid'])->toBe('SM_MERGE');
 });
 
 it('sets channel to sms on conversation and messages', function () {
@@ -138,13 +191,26 @@ it('allowlisted senders bypass rate limiting', function () {
     expect($response->getContent())->not->toContain('conversation limit');
 });
 
-it('rejects blocklisted senders with empty response', function () {
+it('rejects blocklisted senders from env config with empty response', function () {
     config(['services.twilio.blocklist' => ['+15556666666']]);
 
     $response = $this->postJson('/webhook/sms', [
         'From' => '+15556666666',
         'Body' => 'Hello',
         'MessageSid' => 'SM_BLOCK',
+    ]);
+
+    $response->assertSuccessful();
+    expect($response->getContent())->toBe('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
+});
+
+it('rejects blocklisted senders from database with empty response', function () {
+    SmsBlocklist::create(['phone_number' => '+15556666666', 'reason' => 'manual']);
+
+    $response = $this->postJson('/webhook/sms', [
+        'From' => '+15556666666',
+        'Body' => 'Hello',
+        'MessageSid' => 'SM_DB_BLOCK',
     ]);
 
     $response->assertSuccessful();
@@ -177,7 +243,7 @@ it('allows all senders when allowlist is empty', function () {
     expect($response->getContent())->toContain('<Message>');
 });
 
-it('handles STOP keyword and adds to blocklist', function () {
+it('handles STOP keyword and adds to persistent blocklist', function () {
     $response = $this->postJson('/webhook/sms', [
         'From' => '+15554444444',
         'Body' => 'STOP',
@@ -186,11 +252,15 @@ it('handles STOP keyword and adds to blocklist', function () {
 
     $response->assertSuccessful();
     expect($response->getContent())->toContain('unsubscribed');
-    expect(Cache::get('sms_blocklist', []))->toContain('+15554444444');
+
+    $this->assertDatabaseHas('sms_blocklist', [
+        'phone_number' => '+15554444444',
+        'reason' => 'opt_out',
+    ]);
 });
 
-it('handles START keyword and removes from blocklist', function () {
-    Cache::forever('sms_blocklist', ['+15554444444']);
+it('handles START keyword and removes from persistent blocklist', function () {
+    SmsBlocklist::create(['phone_number' => '+15554444444', 'reason' => 'opt_out']);
 
     $response = $this->postJson('/webhook/sms', [
         'From' => '+15554444444',
@@ -200,7 +270,10 @@ it('handles START keyword and removes from blocklist', function () {
 
     $response->assertSuccessful();
     expect($response->getContent())->toContain('resubscribed');
-    expect(Cache::get('sms_blocklist', []))->not->toContain('+15554444444');
+
+    $this->assertDatabaseMissing('sms_blocklist', [
+        'phone_number' => '+15554444444',
+    ]);
 });
 
 it('handles HELP keyword', function () {
@@ -219,16 +292,21 @@ it('handles all opt-out keyword variants', function () {
     $keywords = ['stop', 'stopall', 'unsubscribe', 'cancel', 'end'];
 
     foreach ($keywords as $index => $keyword) {
-        Cache::forget('sms_blocklist');
+        $phone = "+1555000000{$index}";
 
         $response = $this->postJson('/webhook/sms', [
-            'From' => "+1555000000{$index}",
+            'From' => $phone,
             'Body' => strtoupper($keyword),
             'MessageSid' => "SM_OPT_{$index}",
         ]);
 
         $response->assertSuccessful();
         expect($response->getContent())->toContain('unsubscribed');
+
+        $this->assertDatabaseHas('sms_blocklist', [
+            'phone_number' => $phone,
+            'reason' => 'opt_out',
+        ]);
     }
 });
 
@@ -403,4 +481,20 @@ it('includes SMS context hint in messages sent to AI', function () {
 
     expect($userMessage->content)->toContain('conversation is happening over SMS');
     expect($userMessage->content)->toContain('under 320 characters');
+});
+
+it('does not duplicate blocklist entry on repeated STOP', function () {
+    $this->postJson('/webhook/sms', [
+        'From' => '+15551112222',
+        'Body' => 'STOP',
+        'MessageSid' => 'SM_STOP1',
+    ]);
+
+    $this->postJson('/webhook/sms', [
+        'From' => '+15551112222',
+        'Body' => 'STOP',
+        'MessageSid' => 'SM_STOP2',
+    ]);
+
+    expect(SmsBlocklist::where('phone_number', '+15551112222')->count())->toBe(1);
 });
