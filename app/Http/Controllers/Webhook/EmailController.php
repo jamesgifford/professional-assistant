@@ -19,88 +19,146 @@ class EmailController extends Controller
 
     public function __invoke(Request $request): JsonResponse
     {
-        $sender = $request->input('sender', '');
-        $subject = $request->input('subject', '');
-        $body = $request->input('stripped-text', $request->input('body-plain', ''));
-
-        Log::info('Email received', ['sender' => $sender, 'subject' => $subject]);
-
-        if ($this->isAutoReply($request)) {
-            Log::info('Ignoring auto-reply email', ['sender' => $sender]);
-
-            return response()->json(['status' => 'ignored', 'reason' => 'auto-reply']);
-        }
-
-        if (empty($body)) {
-            $htmlBody = $request->input('body-html', '');
-            $body = strip_tags($htmlBody);
-        }
-
-        if (empty(trim($body))) {
-            return response()->json(['status' => 'ignored', 'reason' => 'empty body']);
-        }
-
-        if (empty($subject)) {
-            $subject = 'Professional Inquiry';
-        }
-
-        $conversation = Conversation::firstOrCreate(
-            ['session_key' => strtolower($sender)],
-            ['channel' => 'email', 'metadata' => []],
-        );
-
-        $metadata = $conversation->metadata ?? [];
-        $metadata['email'] = $sender;
-        $metadata['last_subject'] = $subject;
-        $conversation->metadata = $metadata;
-        $conversation->channel = 'email';
-        $conversation->save();
-
         try {
-            $result = $this->aiService->chat($conversation, $body);
-            $responseText = $result['response'];
+            if ($request->input('type') !== 'email.received') {
+                return response()->json(['status' => 'ignored', 'reason' => 'unsupported event type']);
+            }
+
+            $data = $request->input('data', []);
+            $sender = $data['from'] ?? '';
+            $subject = $data['subject'] ?? '';
+            $originalMessageId = $data['id'] ?? null;
+
+            Log::info('Resend email received', ['sender' => $sender, 'subject' => $subject]);
+
+            if ($this->shouldIgnore($sender, $subject, $data)) {
+                Log::info('Ignoring email', ['sender' => $sender, 'reason' => 'auto-reply or loop']);
+
+                return response()->json(['status' => 'ignored', 'reason' => 'auto-reply']);
+            }
+
+            $body = $this->extractBody($data);
+
+            if (empty(trim($body))) {
+                return response()->json(['status' => 'ignored', 'reason' => 'empty body']);
+            }
+
+            if (empty($subject)) {
+                $subject = 'Professional Inquiry';
+            }
+
+            $conversation = Conversation::firstOrCreate(
+                ['session_key' => strtolower($sender)],
+                ['channel' => 'email', 'metadata' => []],
+            );
+
+            $metadata = $conversation->metadata ?? [];
+            $metadata['email'] = $sender;
+            $metadata['last_subject'] = $subject;
+            $metadata['last_message_id'] = $originalMessageId;
+            $conversation->metadata = $metadata;
+            $conversation->channel = 'email';
+            $conversation->save();
+
+            try {
+                $result = $this->aiService->chat($conversation, $body);
+                $responseText = $result['response'];
+            } catch (\Throwable $e) {
+                Log::error('AI provider failure for email', ['error' => $e->getMessage()]);
+                $responseText = "I'm experiencing technical difficulties right now. Please try again shortly, or reach James directly at james@jamesgifford.com";
+
+                $conversation->appendMessage('assistant', $responseText, [
+                    'error' => true,
+                    'exception' => get_class($e),
+                    'exception_message' => $e->getMessage(),
+                ]);
+            }
+
+            $replySubject = str_starts_with(strtolower($subject), 're:')
+                ? $subject
+                : "Re: {$subject}";
+
+            Mail::to($sender)->send(new ProfessionalAssistantReply(
+                $responseText,
+                $replySubject,
+                $originalMessageId,
+            ));
+
+            return response()->json(['status' => 'sent']);
         } catch (\Throwable $e) {
-            Log::error('AI provider failure for email', ['error' => $e->getMessage()]);
-            $responseText = "I'm experiencing technical difficulties right now. Please try again shortly or reach James directly at james@jamesgifford.com";
-
-            $conversation->appendMessage('assistant', $responseText, [
-                'error' => true,
-                'exception' => get_class($e),
-                'exception_message' => $e->getMessage(),
+            Log::error('Resend webhook processing error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
+
+            return response()->json(['status' => 'error'], 500);
         }
-
-        $replySubject = str_starts_with(strtolower($subject), 're:')
-            ? $subject
-            : "Re: {$subject}";
-
-        Mail::to($sender)->send(new ProfessionalAssistantReply($responseText, $replySubject));
-
-        return response()->json(['status' => 'sent']);
     }
 
-    private function isAutoReply(Request $request): bool
+    private function shouldIgnore(string $sender, string $subject, array $data): bool
     {
-        $sender = strtolower($request->input('sender', ''));
-        if (str_contains($sender, 'mailer-daemon') || str_contains($sender, 'postmaster')) {
+        $senderLower = strtolower($sender);
+        $inboundAddress = strtolower(config('services.resend.inbound_address', ''));
+
+        if ($senderLower === $inboundAddress) {
             return true;
         }
 
-        $subject = strtolower($request->input('subject', ''));
-        if (str_contains($subject, 'auto-reply') || str_contains($subject, 'out of office') || str_contains($subject, 'automatic reply')) {
+        if (str_contains($senderLower, 'mailer-daemon') || str_contains($senderLower, 'postmaster') || str_contains($senderLower, 'noreply')) {
             return true;
         }
 
-        $autoSubmitted = strtolower($request->header('X-Auto-Response-Suppress', '') ?: $request->input('X-Auto-Response-Suppress', ''));
-        if (! empty($autoSubmitted)) {
+        $subjectLower = strtolower($subject);
+        if (str_contains($subjectLower, 'auto-reply') || str_contains($subjectLower, 'out of office') || str_contains($subjectLower, 'automatic reply')) {
             return true;
         }
 
-        $precedence = strtolower($request->header('Precedence', '') ?: $request->input('Precedence', ''));
-        if (in_array($precedence, ['auto_reply', 'bulk', 'junk'])) {
-            return true;
+        $headers = $data['headers'] ?? [];
+        foreach ($headers as $header) {
+            $name = strtolower($header['name'] ?? '');
+            $value = strtolower($header['value'] ?? '');
+
+            if ($name === 'x-auto-responded-to' || ($name === 'auto-submitted' && str_contains($value, 'auto-replied'))) {
+                return true;
+            }
         }
 
         return false;
+    }
+
+    private function extractBody(array $data): string
+    {
+        $body = $data['text'] ?? '';
+
+        if (empty($body)) {
+            $html = $data['html'] ?? '';
+            $body = strip_tags($html);
+        }
+
+        return $this->stripQuotedContent($body);
+    }
+
+    private function stripQuotedContent(string $body): string
+    {
+        $lines = explode("\n", $body);
+        $cleaned = [];
+
+        foreach ($lines as $line) {
+            if (str_starts_with(trim($line), '>')) {
+                continue;
+            }
+
+            if (trim($line) === '--' || str_starts_with(trim($line), '___')) {
+                break;
+            }
+
+            if (preg_match('/^On .+ wrote:$/i', trim($line))) {
+                break;
+            }
+
+            $cleaned[] = $line;
+        }
+
+        return trim(implode("\n", $cleaned));
     }
 }

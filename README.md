@@ -10,7 +10,18 @@ This application uses multiple AI providers (Anthropic Claude primary, OpenAI GP
 
 - **REST API** — `POST /api/chat` for direct integration and testing
 - **SMS** — Twilio webhook at `POST /webhook/sms` for text message conversations
-- **Email** — Mailgun webhook at `POST /webhook/email` for email conversations
+- **Email** — Resend webhook at `POST /webhook/resend/inbound` for email conversations
+
+### Channel Flagging
+
+Each conversation and individual message is tagged with a `channel` value to distinguish the origin:
+
+- `'web'` — Messages from the browser-based chat UI
+- `'api'` — Messages from the REST API
+- `'sms'` — Messages from Twilio SMS
+- `'email'` — Messages from Resend inbound email
+
+This allows conversations that span multiple channels to track the origin of each individual message.
 
 ## Requirements
 
@@ -53,9 +64,15 @@ TWILIO_ACCOUNT_SID=AC...
 TWILIO_AUTH_TOKEN=...
 TWILIO_PHONE_NUMBER=+15551234567
 
-# Mailgun (required for email)
-MAILGUN_INBOUND_ADDRESS=hire-james@yourdomain.com
-MAILGUN_WEBHOOK_SIGNING_KEY=...
+# Resend (required for email)
+RESEND_API_KEY=re_...
+RESEND_INBOUND_ADDRESS=prompt@jamesgifford.ai
+RESEND_WEBHOOK_SECRET=whsec_...
+
+# Mail (uses Resend as the transport)
+MAIL_MAILER=resend
+MAIL_FROM_ADDRESS=prompt@jamesgifford.ai
+MAIL_FROM_NAME="James Gifford's AI Assistant"
 ```
 
 ### 4. Run Migrations
@@ -138,17 +155,59 @@ php artisan ai:health
 
 Webhook signature validation is bypassed in `local` and `testing` environments.
 
-## Configuring Mailgun Inbound Email
+## Configuring Resend Inbound Email
 
-1. Set up a Mailgun receiving route pointing to `https://<your-domain>/webhook/email`
-2. Configure the route to forward to your webhook URL with `store()` and `notify()` actions
-3. Set `MAILGUN_INBOUND_ADDRESS` and `MAILGUN_WEBHOOK_SIGNING_KEY` in `.env`
+### Resend Dashboard Setup
 
-For local testing with ngrok:
+1. Sign up at [resend.com](https://resend.com) and get your API key
+2. Go to **Domains** and add your domain (e.g., `jamesgifford.ai`)
+3. Configure the required DNS records:
+   - MX record pointing to Resend's inbound servers
+   - SPF, DKIM, and DMARC records for outbound delivery
+4. Go to **Webhooks** and create a new webhook:
+   - URL: `https://<your-domain>/webhook/resend/inbound`
+   - Events: Select `email.received`
+   - Copy the signing secret to `RESEND_WEBHOOK_SECRET` in `.env`
+
+### Environment Variables
+
+```env
+RESEND_API_KEY=re_...              # Your Resend API key
+RESEND_INBOUND_ADDRESS=prompt@jamesgifford.ai  # The email address receiving inbound mail
+RESEND_WEBHOOK_SECRET=whsec_...    # Webhook signing secret from Resend dashboard
+MAIL_MAILER=resend                 # Use Resend as the mail transport
+MAIL_FROM_ADDRESS=prompt@jamesgifford.ai
+MAIL_FROM_NAME="James Gifford's AI Assistant"
+```
+
+### Testing Locally with ngrok
+
 ```bash
+# Start your server
+php artisan serve
+
+# In another terminal, start ngrok
 ngrok http 8000
-# Configure Mailgun inbound route to https://<ngrok-url>/webhook/email
-# Send an email to hire-james@yourdomain.com
+
+# In Resend dashboard → Webhooks → Add webhook:
+# URL: https://<ngrok-url>/webhook/resend/inbound
+# Events: email.received
+
+# Send an email to your Resend inbound address
+# Verify the AI reply arrives in your inbox and threads correctly
+```
+
+### Verifying Email Integration
+
+```bash
+# Check the webhook route exists
+php artisan route:list --path=webhook/resend
+
+# Verify a conversation was created with channel='email'
+php artisan tinker --execute="echo App\Models\Conversation::where('channel', 'email')->count();"
+
+# Verify messages have channel='email'
+php artisan tinker --execute="echo App\Models\Conversation::where('channel', 'email')->first()?->messages()->pluck('channel');"
 ```
 
 ## Health Check & Failover System
@@ -232,10 +291,10 @@ app/
 │   │   │   └── HealthController.php  # Health check endpoint
 │   │   └── Webhook/
 │   │       ├── SmsController.php     # Twilio SMS webhook
-│   │       └── EmailController.php   # Mailgun email webhook
+│   │       └── EmailController.php   # Resend email webhook
 │   ├── Middleware/
 │   │   ├── VerifyTwilioSignature.php # Twilio webhook auth
-│   │   └── VerifyMailgunSignature.php # Mailgun webhook auth
+│   │   └── VerifyResendSignature.php # Resend webhook auth (Svix)
 │   └── Requests/Api/
 │       └── ChatRequest.php           # Chat validation
 ├── Mail/ProfessionalAssistantReply.php     # Email reply mailable

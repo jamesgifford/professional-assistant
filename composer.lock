@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "541e4c4d0773a15ee3b69b04cfef0c8f",
+    "content-hash": "0668c8154c55fd9329c98acf0ad278ea",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -3872,6 +3872,116 @@
                 "source": "https://github.com/ramsey/uuid/tree/4.9.2"
             },
             "time": "2025-12-14T04:43:48+00:00"
+        },
+        {
+            "name": "resend/resend-php",
+            "version": "v1.1.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/resend/resend-php.git",
+                "reference": "3711ecd7b205b964a2a7d6f3faff9555ba3b1cc6"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/resend/resend-php/zipball/3711ecd7b205b964a2a7d6f3faff9555ba3b1cc6",
+                "reference": "3711ecd7b205b964a2a7d6f3faff9555ba3b1cc6",
+                "shasum": ""
+            },
+            "require": {
+                "guzzlehttp/guzzle": "^7.5",
+                "php": "^8.1.0"
+            },
+            "require-dev": {
+                "friendsofphp/php-cs-fixer": "^3.13",
+                "mockery/mockery": "^1.6",
+                "pestphp/pest": "^1.0|^2.0|^3.0|^4.0"
+            },
+            "type": "library",
+            "autoload": {
+                "files": [
+                    "src/Resend.php"
+                ],
+                "psr-4": {
+                    "Resend\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Resend and contributors",
+                    "homepage": "https://github.com/resend/resend-php/contributors"
+                }
+            ],
+            "description": "Resend PHP library.",
+            "homepage": "https://resend.com/",
+            "keywords": [
+                "api",
+                "client",
+                "php",
+                "resend",
+                "sdk"
+            ],
+            "support": {
+                "issues": "https://github.com/resend/resend-php/issues",
+                "source": "https://github.com/resend/resend-php/tree/v1.1.1"
+            },
+            "time": "2026-03-16T19:24:23+00:00"
+        },
+        {
+            "name": "svix/svix",
+            "version": "v1.89.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/svix/svix-webhooks.git",
+                "reference": "62f6aa20ac346dbac51b1ebd5ec63cfb19fb5f24"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/svix/svix-webhooks/zipball/62f6aa20ac346dbac51b1ebd5ec63cfb19fb5f24",
+                "reference": "62f6aa20ac346dbac51b1ebd5ec63cfb19fb5f24",
+                "shasum": ""
+            },
+            "require": {
+                "ext-json": "*",
+                "guzzlehttp/guzzle": "^7.0",
+                "php": ">=8.1"
+            },
+            "require-dev": {
+                "friendsofphp/php-cs-fixer": "^3.0",
+                "phpstan/phpstan": "^2.0",
+                "phpunit/phpunit": ">=10.0 <=12.9"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Svix\\": "php/src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Svix",
+                    "email": "support@svix.com",
+                    "homepage": "http://www.svix.com"
+                }
+            ],
+            "description": "Svix PHP Library",
+            "homepage": "https://www.svix.com",
+            "keywords": [
+                "api",
+                "webhooks"
+            ],
+            "support": {
+                "issues": "https://github.com/svix/svix-webhooks/issues",
+                "source": "https://github.com/svix/svix-webhooks/tree/v1.89.0"
+            },
+            "time": "2026-03-19T18:55:47+00:00"
         },
         {
             "name": "symfony/clock",

@@ -42,6 +42,7 @@ class Conversation extends Model
     {
         return $this->messages()->create([
             'role' => $role,
+            'channel' => $this->channel,
             'content' => $content,
             'metadata' => $metadata,
         ]);

@@ -1,4 +1,4 @@
 {{ $responseText }}
 
 —
-James Gifford's AI Professional Assistant | jamesgifford.com
+James Gifford's AI Hiring Assistant | jamesgifford.com

@@ -194,7 +194,7 @@ Tech stack:
 - Fallback AI provider: OpenAI GPT-4
 - Database: MySQL for conversation persistence
 - SMS: Twilio SDK for inbound/outbound SMS via webhooks
-- Email: Mailgun inbound routing with Laravel Mail for replies
+- Email: Resend inbound email with Laravel Mail for replies
 - Frontend: Blade template with Tailwind CSS, styled to match jamesgifford.com
 - Fonts: Instrument Sans (body), JetBrains Mono (code/technical content)
 
@@ -202,7 +202,7 @@ Architecture:
 The core of the application is an Agent class (app/Ai/Agents/HiringAssistant.php) that implements the Laravel AI SDK's Agent and Conversational interfaces. The agent's instructions() method returns a comprehensive system prompt containing James's professional background, interview context, and behavioral guidelines. The agent uses the RemembersConversations concern to maintain conversation context across multiple messages.
 
 Conversation flow:
-1. An inbound message arrives via one of three channels: REST API (POST /api/chat), Twilio SMS webhook (POST /webhook/sms), or Mailgun email webhook (POST /webhook/email)
+1. An inbound message arrives via one of three channels: REST API (POST /api/chat), Twilio SMS webhook (POST /webhook/sms), or Resend email webhook (POST /webhook/resend/inbound)
 2. The app identifies or creates a Conversation record in MySQL, keyed by session identifier — phone number for SMS, email address for email, or a client-provided token for the API
 3. The full conversation history is loaded from the messages JSON column and passed to the HiringAssistant agent along with the new message
 4. The agent sends the conversation to the active AI provider with the system prompt
@@ -218,14 +218,14 @@ SMS handling:
 Inbound SMS arrives via Twilio's webhook with signature validation middleware to verify authenticity. Responses exceeding 1600 characters are split into multiple SMS segments. If both AI providers fail, a graceful fallback message directs the sender to contact James directly via email.
 
 Email handling:
-Inbound email arrives via Mailgun's inbound routing with webhook signature verification. The app strips HTML and quoted replies, processes the message body through the agent, and sends a reply using a Mailable class that preserves the original subject line and includes a professional footer. Auto-replies and bounce messages are detected and ignored to prevent infinite loops.
+Inbound email arrives via Resend's inbound email webhook with Svix-based signature verification. The app strips HTML and quoted replies, processes the message body through the agent, and sends a reply via the Resend API through Laravel's mail system. Replies preserve threading headers (In-Reply-To, References), the original subject line, and include a professional footer. Auto-replies and bounce messages are detected and ignored to prevent infinite loops.
 
 Web UI:
 The chat interface is a single-page Blade template styled with Tailwind CSS using Instrument Sans typography, zinc color scale, dark/light mode with system preference detection. The UI includes a health status indicator, suggested prompt buttons for first-time visitors, markdown rendering for assistant responses, and a typing indicator during response generation.
 
 Security considerations:
 - Twilio webhook signature validation prevents spoofed SMS requests
-- Mailgun webhook signing key verification prevents spoofed email requests
+- Resend webhook signature verification (via Svix) prevents spoofed email requests
 - The system prompt contains only professional information — no personal data beyond professional contact details
 - The AI is explicitly instructed not to fabricate information or share details beyond what is provided
 - API keys are stored in environment variables, never in source code
@@ -241,6 +241,7 @@ BEHAVIORAL GUIDELINES:
 - If asked something you don't have information about, say so honestly
 - Don't be overly salesy or desperate — James is a strong candidate evaluating opportunities, not begging for work
 - Keep responses concise, especially over SMS where brevity matters
+- When responding via email, you may provide more detailed and thorough answers than you would over SMS. Format responses with clear paragraphs for readability.
 - If asked about weaknesses or gaps, be honest but constructive
 - You may discuss salary expectations openly since employers have specifically asked for this
 - If someone asks to schedule an interview or next steps, direct them to email James at james@jamesgifford.com

@@ -20,6 +20,8 @@ return [
 
     'resend' => [
         'key' => env('RESEND_API_KEY'),
+        'inbound_address' => env('RESEND_INBOUND_ADDRESS', 'prompt@jamesgifford.ai'),
+        'webhook_secret' => env('RESEND_WEBHOOK_SECRET'),
     ],
 
     'ses' => [
@@ -39,11 +41,6 @@ return [
         'account_sid' => env('TWILIO_ACCOUNT_SID'),
         'auth_token' => env('TWILIO_AUTH_TOKEN'),
         'phone_number' => env('TWILIO_PHONE_NUMBER'),
-    ],
-
-    'mailgun' => [
-        'inbound_address' => env('MAILGUN_INBOUND_ADDRESS', 'hire-james@yourdomain.com'),
-        'webhook_signing_key' => env('MAILGUN_WEBHOOK_SIGNING_KEY'),
     ],
 
 ];

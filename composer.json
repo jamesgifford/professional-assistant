@@ -16,6 +16,8 @@
         "laravel/tinker": "^3.0",
         "livewire/flux": "^2.12.0",
         "livewire/livewire": "^4.1",
+        "resend/resend-php": "^1.1",
+        "svix/svix": "^1.89",
         "twilio/sdk": "^8.11"
     },
     "require-dev": {

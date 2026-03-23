@@ -16,11 +16,12 @@ class ProfessionalAssistantReply extends Mailable
     public function __construct(
         public string $responseText,
         public string $replySubject,
+        public ?string $originalMessageId = null,
     ) {}
 
     public function envelope(): Envelope
     {
-        $fromAddress = config('services.mailgun.inbound_address', config('mail.from.address'));
+        $fromAddress = config('services.resend.inbound_address', config('mail.from.address'));
 
         return new Envelope(
             from: $fromAddress,
@@ -32,6 +33,7 @@ class ProfessionalAssistantReply extends Mailable
     public function content(): Content
     {
         return new Content(
+            html: 'emails.professional-assistant-reply-html',
             text: 'emails.professional-assistant-reply',
         );
     }
@@ -42,5 +44,17 @@ class ProfessionalAssistantReply extends Mailable
     public function attachments(): array
     {
         return [];
+    }
+
+    public function build(): static
+    {
+        if ($this->originalMessageId) {
+            $this->withSymfonyMessage(function ($message) {
+                $message->getHeaders()->addTextHeader('In-Reply-To', $this->originalMessageId);
+                $message->getHeaders()->addTextHeader('References', $this->originalMessageId);
+            });
+        }
+
+        return $this;
     }
 }
