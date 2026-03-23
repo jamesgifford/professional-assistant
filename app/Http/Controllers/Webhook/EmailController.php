@@ -71,18 +71,23 @@ class EmailController extends Controller
             $conversation->channel = 'email';
             $conversation->save();
 
+            $messageMetadata = [
+                'email' => $sender,
+                'subject' => $subject,
+            ];
+
             try {
-                $result = $this->aiService->chat($conversation, $body);
+                $result = $this->aiService->chat($conversation, $body, $messageMetadata);
                 $responseText = $result['response'];
             } catch (\Throwable $e) {
                 Log::error('AI provider failure for email', ['error' => $e->getMessage()]);
                 $responseText = "I'm experiencing technical difficulties right now. Please try again shortly, or reach James directly at james@jamesgifford.com";
 
-                $conversation->appendMessage('assistant', $responseText, [
+                $conversation->appendMessage('assistant', $responseText, array_merge($messageMetadata, [
                     'error' => true,
                     'exception' => get_class($e),
                     'exception_message' => $e->getMessage(),
-                ]);
+                ]));
             }
 
             $replySubject = str_starts_with(strtolower($subject), 're:')

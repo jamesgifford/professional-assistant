@@ -57,7 +57,7 @@ it('handles an incoming Resend email and sends a reply', function () {
     });
 });
 
-it('stores channel on individual messages', function () {
+it('stores channel and email metadata on individual messages', function () {
     mockResendReceiving('Tell me about James.');
 
     $this->postJson('/webhook/resend/inbound', [
@@ -80,7 +80,15 @@ it('stores channel on individual messages', function () {
 
     expect($messages)->toHaveCount(2);
     expect($messages[0]->channel)->toBe('email');
+    expect($messages[0]->metadata)->toMatchArray([
+        'email' => 'hr@company.com',
+        'subject' => 'Role Inquiry',
+    ]);
     expect($messages[1]->channel)->toBe('email');
+    expect($messages[1]->metadata)->toMatchArray([
+        'email' => 'hr@company.com',
+        'subject' => 'Role Inquiry',
+    ]);
 });
 
 it('prepends Re: to the subject if not already present', function () {

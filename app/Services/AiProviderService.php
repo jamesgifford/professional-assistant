@@ -56,7 +56,11 @@ class AiProviderService
      *
      * @return array{response: string, provider: string}
      */
-    public function chat(Conversation $conversation, string $message): array
+    /**
+     * @param  array<string, mixed>|null  $messageMetadata
+     * @return array{response: string, provider: string}
+     */
+    public function chat(Conversation $conversation, string $message, ?array $messageMetadata = null): array
     {
         $previousMessages = $conversation->messages()
             ->oldest()
@@ -67,7 +71,7 @@ class AiProviderService
             })
             ->all();
 
-        $conversation->appendMessage('user', $message);
+        $conversation->appendMessage('user', $message, $messageMetadata);
 
         $providers = $this->getProviderOrder();
 
@@ -78,7 +82,7 @@ class AiProviderService
         $responseText = (string) $response;
         $providerUsed = $providers[0];
 
-        $conversation->appendMessage('assistant', $responseText);
+        $conversation->appendMessage('assistant', $responseText, $messageMetadata);
         $conversation->update(['provider_used' => $providerUsed]);
 
         Log::info('AI response generated', [
