@@ -22,7 +22,7 @@ class SmsController extends Controller
 
     private const SMS_CONTEXT_HINT = '[This conversation is happening over SMS. Keep responses concise — ideally under 320 characters (2 SMS segments). Avoid long lists, code blocks, and detailed technical explanations. Be direct and brief. If the question requires a detailed answer, provide a summary and suggest they visit jamesgifford.ai or email james@jamesgifford.com for more detail.]';
 
-    private const FIRST_MESSAGE_HINT = '[This is the first message from this sender. Briefly introduce yourself as James Gifford\'s AI hiring assistant before answering their question.]';
+    private const FIRST_MESSAGE_HINT = '[This is the first message from this sender. Briefly introduce yourself as James Gifford\'s AI professional assistant before answering their question.]';
 
     private const MAX_RESPONSE_LENGTH = 1600;
 
@@ -246,14 +246,14 @@ class SmsController extends Controller
         Cache::forever('sms_blocklist', $blocklist);
 
         return $this->buildTwimlResponse(
-            "You've been resubscribed. Send a message to start a conversation with James Gifford's AI hiring assistant."
+            "You've been resubscribed. Send a message to start a conversation with James Gifford's AI professional assistant."
         );
     }
 
     private function handleHelp(): Response
     {
         return $this->buildTwimlResponse(
-            "This is James Gifford's AI hiring assistant. Send a message to ask about his professional background, skills, or availability. Reply STOP to unsubscribe. Contact James directly at james@jamesgifford.com"
+            "This is James Gifford's AI professional assistant. Send a message to ask about his professional background, skills, or availability. Reply STOP to unsubscribe. Contact James directly at james@jamesgifford.com"
         );
     }
 

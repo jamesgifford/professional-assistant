@@ -5,7 +5,7 @@
     <p style="margin: 0 0 16px 0;">{{ $paragraph }}</p>
 @endforeach
 <p style="margin-top: 32px; padding-top: 16px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 14px;">
-    James Gifford's AI Hiring Assistant<br>
+    James Gifford's AI Professional Assistant<br>
     Chat: <a href="https://jamesgifford.ai" style="color: #6b7280;">jamesgifford.ai</a> &middot; Portfolio: <a href="https://jamesgifford.com" style="color: #6b7280;">jamesgifford.com</a><br>
     <a href="https://jamesgifford.ai/privacy" style="color: #6b7280;">Privacy Policy</a> &middot; <a href="https://jamesgifford.ai/terms" style="color: #6b7280;">Terms</a>
 </p>

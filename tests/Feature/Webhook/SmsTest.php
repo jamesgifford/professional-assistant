@@ -211,7 +211,7 @@ it('handles HELP keyword', function () {
     ]);
 
     $response->assertSuccessful();
-    expect($response->getContent())->toContain('hiring assistant');
+    expect($response->getContent())->toContain('professional assistant');
     expect($response->getContent())->toContain('STOP');
 });
 

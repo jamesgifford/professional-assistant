@@ -48,7 +48,7 @@
                     <div class="flex items-center justify-center h-full min-h-[50vh]">
                         <div class="text-center max-w-md">
                             <div class="flex items-center justify-center gap-2 mb-4">
-                                <span class="font-mono text-xs text-emerald-600 dark:text-emerald-400">// hiring assistant</span>
+                                <span class="font-mono text-xs text-emerald-600 dark:text-emerald-400">// professional assistant</span>
                                 <span
                                     class="inline-block w-2 h-2 rounded-full"
                                     :class="healthStatus === 'up' ? 'bg-emerald-500' : (healthStatus === 'down' ? 'bg-red-500' : 'bg-zinc-400')"

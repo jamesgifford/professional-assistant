@@ -1,4 +1,4 @@
-<x-layouts.public title="Terms &amp; Conditions" metaDescription="Terms and Conditions for James Gifford's AI Hiring Assistant at jamesgifford.ai">
+<x-layouts.public title="Terms &amp; Conditions" metaDescription="Terms and Conditions for James Gifford's AI Professional Assistant at jamesgifford.ai">
     <div class="max-w-[720px] mx-auto px-6 py-8 pb-20">
         <a href="{{ route('home') }}" class="inline-flex items-center gap-1.5 text-sm text-zinc-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors mb-8">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
@@ -12,7 +12,7 @@
             <p class="text-zinc-500 dark:text-zinc-400 text-sm !mt-1 !mb-10">Last updated: March 22, 2026</p>
 
             <h2>Overview</h2>
-            <p>This website (jamesgifford.ai) provides an AI-powered hiring assistant that represents James Gifford in conversations with potential employers, recruiters, and hiring managers. By using this service via the web chat, email, or SMS, you agree to the following terms.</p>
+            <p>This website (jamesgifford.ai) provides an AI-powered professional assistant that represents James Gifford in conversations with potential employers, recruiters, and hiring managers. By using this service via the web chat, email, or SMS, you agree to the following terms.</p>
             <p>The service is operated by Progravity LLC, an Oregon-based software company.</p>
 
             <h2>Nature of the Service</h2>

@@ -199,12 +199,12 @@ Tech stack:
 - Fonts: Instrument Sans (body), JetBrains Mono (code/technical content)
 
 Architecture:
-The core of the application is an Agent class (app/Ai/Agents/HiringAssistant.php) that implements the Laravel AI SDK's Agent and Conversational interfaces. The agent's instructions() method returns a comprehensive system prompt containing James's professional background, interview context, and behavioral guidelines. The agent uses the RemembersConversations concern to maintain conversation context across multiple messages.
+The core of the application is an Agent class (app/Ai/Agents/ProfessionalAssistant.php) that implements the Laravel AI SDK's Agent and Conversational interfaces. The agent's instructions() method returns a comprehensive system prompt containing James's professional background, interview context, and behavioral guidelines. The agent uses the RemembersConversations concern to maintain conversation context across multiple messages.
 
 Conversation flow:
 1. An inbound message arrives via one of three channels: REST API (POST /api/chat), Twilio SMS webhook (POST /webhook/sms), or Resend email webhook (POST /webhook/resend/inbound)
 2. The app identifies or creates a Conversation record in MySQL, keyed by session identifier — phone number for SMS, email address for email, or a client-provided token for the API
-3. The full conversation history is loaded from the messages JSON column and passed to the HiringAssistant agent along with the new message
+3. The full conversation history is loaded from the messages JSON column and passed to the ProfessionalAssistant agent along with the new message
 4. The agent sends the conversation to the active AI provider with the system prompt
 5. The AI response is appended to the conversation history and persisted
 6. The response is returned through the same channel it arrived on — as JSON for the API, as TwiML for SMS, or as a reply email via Laravel Mail for email
